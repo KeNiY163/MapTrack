@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  bot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: maptrack_bot
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+    volumes:
+      - ../data:/app/data
+      - ../screenshots:/app/screenshots
+    ports:
+      - "8000:8000"
+    restart: unless-stopped  # Перезапуски отданы оркестратору (Docker)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - maptrack_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: maptrack_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    restart: unless-stopped
+    networks:
+      - maptrack_network
+    depends_on:
+      - bot
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: maptrack_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - maptrack_network
+
+volumes:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  maptrack_network:
+    driver: bridge

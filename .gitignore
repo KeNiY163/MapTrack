@@ -59,5 +59,13 @@ Thumbs.db
 *.bak
 *.cache
 
+# Test files
+tests/
+trash/
+
+# Development files
+*.dev
+*.local
+
 
 

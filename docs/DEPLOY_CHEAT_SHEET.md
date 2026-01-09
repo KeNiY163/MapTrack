@@ -3,7 +3,7 @@
 ## ⚡ Супер быстрый деплой (1 команда)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/MapTrack/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/KeNiY163/MapTrack/main/install.sh | sudo bash
 ```
 
 ---
@@ -29,7 +29,7 @@ chmod +x /usr/local/bin/docker-compose
 mkdir -p /opt/maptrack && cd /opt/maptrack
 
 # Вариант A: Git
-git clone https://github.com/YOUR_USERNAME/MapTrack.git .
+git clone https://github.com/KeNiY163/MapTrack.git .
 
 # Вариант B: Загрузка архива
 scp maptrack.zip root@YOUR_VPS_IP:/tmp/
@@ -191,7 +191,7 @@ curl -f http://localhost:9090/-/healthy || echo "Prometheus down!"
 ssh root@YOUR_VPS_IP "curl -fsSL https://get.docker.com | sh && curl -L 'https://github.com/docker/compose/releases/latest/download/docker-compose-\$(uname -s)-\$(uname -m)' -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose && mkdir -p /opt/maptrack"
 
 # Загрузка файлов (если есть Git репозиторий)
-ssh root@YOUR_VPS_IP "cd /opt/maptrack && git clone https://github.com/YOUR_USERNAME/MapTrack.git ."
+ssh root@YOUR_VPS_IP "cd /opt/maptrack && git clone https://github.com/KeNiY163/MapTrack.git ."
 
 # Настройка токена и запуск
 ssh root@YOUR_VPS_IP "cd /opt/maptrack && cp .env.example .env && echo 'Отредактируйте .env файл с вашим токеном' && docker-compose up -d --build"

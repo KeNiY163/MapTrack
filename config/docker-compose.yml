@@ -6,11 +6,14 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: maptrack_bot
+    env_file:
+      - ../.env
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
     volumes:
       - ../data:/app/data
       - ../screenshots:/app/screenshots
+    user: "0:0"
     ports:
       - "8000:8000"
     restart: unless-stopped  # Перезапуски отданы оркестратору (Docker)

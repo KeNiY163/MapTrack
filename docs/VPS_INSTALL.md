@@ -19,7 +19,7 @@ ssh username@YOUR_VPS_IP
 
 ### Шаг 2: Скачивание и запуск установщика
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/MapTrack/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/KeNiY163/MapTrack/main/install.sh | bash
 ```
 
 Если репозиторий приватный, используйте способ 2.
@@ -70,7 +70,7 @@ cd /opt/maptrack
 
 #### Вариант A: Через Git (если репозиторий публичный)
 ```bash
-git clone https://github.com/YOUR_USERNAME/MapTrack.git .
+git clone https://github.com/KeNiY163/MapTrack.git .
 ```
 
 #### Вариант B: Ручная загрузка файлов

@@ -16,21 +16,31 @@ def run_bot():
     while True:
         try:
             log("🚀 Запуск бота...")
-            # Путь к bot.py - он в той же папке
-            bot_path = os.path.join(os.path.dirname(__file__), "bot.py")
             # Устанавливаем рабочую директорию на корень проекта для правильных путей
             project_root = os.path.dirname(os.path.dirname(__file__))
+            # Запускаем бот как модуль
             process = subprocess.Popen(
-                [sys.executable, bot_path],
+                [sys.executable, "-m", "src.bot"],
                 cwd=project_root,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                text=True,
+                text=False,  # Читаем как байты, чтобы контролировать декодирование
                 bufsize=1
             )
             
-            for line in process.stdout:
-                print(line, end='')
+            for line_bytes in process.stdout:
+                try:
+                    # Декодируем с UTF-8 и обработкой ошибок
+                    line = line_bytes.decode('utf-8', errors='replace')
+                    print(line, end='')
+                except (UnicodeEncodeError, UnicodeDecodeError) as e:
+                    # Безопасный вывод при проблемах с кодировкой
+                    try:
+                        safe_line = line_bytes.decode('utf-8', errors='replace').encode('utf-8', errors='replace').decode('utf-8', errors='replace')
+                        print(safe_line, end='')
+                    except Exception:
+                        # Если и это не помогло, пропускаем строку
+                        pass
             
             process.wait()
             

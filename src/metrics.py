@@ -17,14 +17,24 @@ geocache_size = Gauge('bot_geocache_size', 'Number of entries in geocache')
 geocoding_duration = Histogram('bot_geocoding_duration_seconds', 'Geocoding request duration')
 selenium_duration = Histogram('bot_selenium_duration_seconds', 'Selenium operations duration')
 
+def safe_print(text: str):
+    """Безопасный вывод текста с поддержкой эмодзи в Windows"""
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        # Если не удалось вывести с эмодзи, выводим без них
+        # Удаляем эмодзи и другие не-ASCII символы
+        safe_text = text.encode('ascii', 'ignore').decode('ascii')
+        print(safe_text if safe_text.strip() else text.encode('utf-8', errors='replace').decode('utf-8', errors='replace'))
+
 def start_metrics_server(port=8000):
     """Запуск HTTP сервера для метрик"""
     try:
         start_http_server(port)
-        print(f"📊 Metrics server started on port {port}")
-        print(f"📊 Metrics available at http://0.0.0.0:{port}/metrics")
+        safe_print(f"📊 Metrics server started on port {port}")
+        safe_print(f"📊 Metrics available at http://0.0.0.0:{port}/metrics")
     except Exception as e:
-        print(f"⚠️ Failed to start metrics server: {e}")
+        safe_print(f"⚠️ Failed to start metrics server: {e}")
 
 def track_message(msg_type='text'):
     """Учёт сообщения"""

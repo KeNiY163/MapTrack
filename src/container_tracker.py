@@ -53,12 +53,49 @@ class ContainerTrackerService:
             os.makedirs("screenshots", exist_ok=True)
     
     def _create_driver(self):
-        """Создает и настраивает Chrome WebDriver"""
+        """Создает и настраивает Chrome WebDriver с оптимизацией для снижения нагрузки"""
         options = Options()
+        
+        # Базовые опции для headless режима
         options.add_argument('--headless')
-        options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
+        
+        # Отключение GPU и графики
+        options.add_argument('--disable-gpu')
+        options.add_argument('--disable-software-rasterizer')
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-background-networking')
+        options.add_argument('--disable-background-timer-throttling')
+        options.add_argument('--disable-renderer-backgrounding')
+        options.add_argument('--disable-backgrounding-occluded-windows')
+        
+        # Отключение функций, которые нагружают систему
+        options.add_argument('--disable-features=TranslateUI')
+        options.add_argument('--disable-ipc-flooding-protection')
+        options.add_argument('--disable-hang-monitor')
+        options.add_argument('--disable-prompt-on-repost')
+        options.add_argument('--disable-sync')
+        options.add_argument('--disable-web-resources')
+        options.add_argument('--disable-client-side-phishing-detection')
+        options.add_argument('--disable-component-update')
+        options.add_argument('--disable-default-apps')
+        options.add_argument('--disable-domain-reliability')
+        options.add_argument('--disable-features=AudioServiceOutOfProcess')
+        
+        # Отключение изображений и медиа для экономии ресурсов
+        prefs = {
+            'profile.managed_default_content_settings.images': 2,  # Блокировать изображения
+            'profile.default_content_setting_values.notifications': 2,  # Блокировать уведомления
+            'profile.managed_default_content_settings.media_stream': 2,  # Блокировать медиа
+        }
+        options.add_experimental_option('prefs', prefs)
+        
+        # Отключение логирования
+        options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        options.add_experimental_option('useAutomationExtension', False)
+        
+        # User agent
         options.add_argument(f'user-agent={USER_AGENT}')
         
         try:

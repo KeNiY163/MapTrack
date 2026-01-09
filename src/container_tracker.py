@@ -12,6 +12,8 @@ from selenium.webdriver.chrome.service import Service
 from math import radians, sin, cos, sqrt, atan2
 import time
 import os
+import json
+from typing import Optional, Dict, Any
 
 # Поддержка запуска как скрипта и как модуля
 try:
@@ -52,8 +54,12 @@ class ContainerTrackerService:
         if enable_screenshots:
             os.makedirs("screenshots", exist_ok=True)
     
-    def _create_driver(self):
-        """Создает и настраивает Chrome WebDriver с оптимизацией для снижения нагрузки"""
+    def _create_driver(self, enable_network_logging=False):
+        """Создает и настраивает Chrome WebDriver с оптимизацией для снижения нагрузки
+        
+        Args:
+            enable_network_logging: Включить логирование сетевых запросов для перехвата AJAX
+        """
         options = Options()
         
         # Базовые опции для headless режима
@@ -91,8 +97,13 @@ class ContainerTrackerService:
         }
         options.add_experimental_option('prefs', prefs)
         
-        # Отключение логирования
-        options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        # Отключение логирования (кроме случаев когда нужно логирование сети)
+        if not enable_network_logging:
+            options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        else:
+            # Для перехвата сетевых запросов включаем performance logging
+            options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
+        
         options.add_experimental_option('useAutomationExtension', False)
         
         # User agent
@@ -348,6 +359,208 @@ class ContainerTrackerService:
                     pass
             raise
         
+        finally:
+            if driver:
+                try:
+                    driver.quit()
+                except Exception:
+                    pass
+    
+    def track_contract(self, contract_number: str) -> Optional[Dict[str, Any]]:
+        """
+        Получает данные по договору через Selenium с перехватом AJAX ответа
+        
+        Args:
+            contract_number: Номер договора (например, 122707МС7177)
+            
+        Returns:
+            dict с данными по договору или None если ошибка
+        """
+        start_time = time.time()
+        driver = None
+        ajax_response = None
+        
+        # Функция для безопасного вывода (локальная, чтобы избежать циклических импортов)
+        def safe_print(text: str):
+            try:
+                print(text)
+                import sys
+                sys.stdout.flush()
+            except UnicodeEncodeError:
+                safe_text = text.encode('ascii', 'ignore').decode('ascii')
+                print(safe_text if safe_text.strip() else str(text))
+                import sys
+                sys.stdout.flush()
+        
+        try:
+            safe_print(f"🔍 [SELENIUM] Начало получения данных по договору {contract_number} через Selenium")
+            
+            # Создаем драйвер с логированием сети
+            driver = self._create_driver(enable_network_logging=True)
+            
+            # Включаем перехват сетевых запросов через Chrome DevTools Protocol ДО загрузки страницы
+            driver.execute_cdp_cmd('Network.enable', {})
+            safe_print(f"✅ [SELENIUM] Включен перехват сетевых запросов")
+            
+            # Загружаем страницу
+            contract_url = 'https://gs25.ru/status/'
+            safe_print(f"🌐 [SELENIUM] Загрузка страницы для поиска по договору")
+            driver.get(contract_url)
+            time.sleep(4)
+            
+            # Обрабатываем всплывающие окна
+            self._handle_cookie_popup(driver)
+            self._handle_modal_windows(driver)
+            time.sleep(2)
+            
+            # Находим поле ввода для номера договора
+            safe_print(f"🔍 [SELENIUM] Поиск поля ввода для договора {contract_number}")
+            wait = WebDriverWait(driver, 10)
+            
+            # Ищем поле ввода (может быть input[type="text"] или другой селектор)
+            try:
+                input_fields = wait.until(
+                    EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'input[type="text"]'))
+                )
+                if input_fields:
+                    input_field = input_fields[0]  # Берем первое поле
+                    driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", input_field)
+                    time.sleep(1)
+                    wait.until(EC.visibility_of(input_field))
+                    wait.until(EC.element_to_be_clickable(input_field))
+                    safe_print(f"✅ [SELENIUM] Поле ввода найдено")
+                else:
+                    raise Exception("Поле ввода не найдено")
+            except Exception as e:
+                self._take_screenshot(driver, "contract_input_not_found.png")
+                safe_print(f"⚠️ [SELENIUM] Ошибка поиска поля ввода: {e}")
+                # Попробуем другой селектор
+                input_field = wait.until(
+                    EC.element_to_be_clickable((By.XPATH, "//input[@type='text'] | //input[contains(@placeholder, 'договор') or contains(@placeholder, 'Договор')]"))
+                )
+                safe_print(f"✅ [SELENIUM] Поле ввода найдено через XPath")
+            
+            # Вводим номер договора
+            safe_print(f"⌨️ [SELENIUM] Ввод номера договора: {contract_number}")
+            input_field.clear()
+            time.sleep(0.3)
+            input_field.send_keys(contract_number)
+            time.sleep(1)
+            
+            # Отправляем форму (ENTER или поиск кнопки)
+            safe_print(f"📤 [SELENIUM] Отправка формы поиска")
+            try:
+                input_field.send_keys(Keys.RETURN)
+            except Exception:
+                try:
+                    search_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Поиск')] | //button[@type='submit'] | //input[@type='submit']")
+                    driver.execute_script("arguments[0].click();", search_btn)
+                except Exception:
+                    safe_print(f"⚠️ [SELENIUM] Не удалось найти кнопку поиска, пробуем через JS")
+                    driver.execute_script("arguments[0].form.submit();", input_field)
+            
+            # Ждем AJAX запроса и перехватываем ответ
+            safe_print(f"⏳ [SELENIUM] Ожидание AJAX ответа...")
+            time.sleep(5)  # Даем время на выполнение AJAX запроса
+            
+            # Получаем логи производительности для перехвата сетевых запросов
+            logs = driver.get_log('performance')
+            safe_print(f"📋 [SELENIUM] Получено {len(logs)} записей логов производительности")
+            
+            # Хранилище для request_id для получения тела ответа
+            ajax_request_id = None
+            
+            # Ищем ответ от admin-ajax.php в логах
+            for log in logs:
+                try:
+                    log_data = json.loads(log['message'])
+                    message = log_data.get('message', {})
+                    method = message.get('method', '')
+                    params = message.get('params', {})
+                    
+                    # Ищем ответ от admin-ajax.php
+                    if method == 'Network.responseReceived':
+                        response = params.get('response', {})
+                        url = response.get('url', '')
+                        
+                        if 'admin-ajax.php' in url:
+                            safe_print(f"✅ [SELENIUM] Найден ответ от admin-ajax.php: {url}")
+                            ajax_request_id = params.get('requestId', '')
+                            safe_print(f"🆔 [SELENIUM] Request ID: {ajax_request_id}")
+                            break
+                    
+                except (json.JSONDecodeError, KeyError, Exception) as e:
+                    continue
+            
+            # Если нашли request_id, получаем тело ответа через CDP
+            if ajax_request_id:
+                try:
+                    # Ждем завершения запроса
+                    time.sleep(2)
+                    response_body = driver.execute_cdp_cmd('Network.getResponseBody', {'requestId': ajax_request_id})
+                    body = response_body.get('body', '')
+                    base64_encoded = response_body.get('base64Encoded', False)
+                    
+                    safe_print(f"📄 [SELENIUM] Получено тело ответа, длина: {len(body)} символов, base64: {base64_encoded}")
+                    
+                    # Если ответ в base64, декодируем
+                    if base64_encoded:
+                        import base64
+                        body = base64.b64decode(body).decode('utf-8', errors='ignore')
+                    
+                    safe_print(f"📄 [SELENIUM] Первые 1000 символов ответа:\n{body[:1000]}")
+                    safe_print(f"📄 [SELENIUM] Полный ответ:\n{body}")
+                    
+                    # Пытаемся распарсить JSON
+                    try:
+                        ajax_response = json.loads(body)
+                        safe_print(f"✅ [SELENIUM] JSON успешно распарсен")
+                        safe_print(f"📦 [SELENIUM] Структура ответа: {type(ajax_response)}, ключи: {list(ajax_response.keys()) if isinstance(ajax_response, dict) else 'не словарь'}")
+                        import json as json_module
+                        safe_print(f"📦 [SELENIUM] Полное содержимое JSON ответа:\n{json_module.dumps(ajax_response, ensure_ascii=False, indent=2)}")
+                    except json.JSONDecodeError as e:
+                        safe_print(f"⚠️ [SELENIUM] Ошибка парсинга JSON: {e}")
+                        safe_print(f"📄 [SELENIUM] Ответ не является JSON, возвращаем текст")
+                        ajax_response = {'raw': body, 'error': 'not_json'}
+                        
+                except Exception as e:
+                    safe_print(f"❌ [SELENIUM] Ошибка получения тела ответа через CDP: {e}")
+                    import traceback
+                    safe_print(f"📋 [SELENIUM] Traceback:\n{traceback.format_exc()}")
+            
+            # Если не нашли через логи, пробуем получить через выполнение JS на странице
+            if not ajax_response:
+                safe_print(f"⚠️ [SELENIUM] AJAX ответ не найден в логах, пробуем через выполнение JS на странице")
+                time.sleep(2)  # Даем еще немного времени
+                
+                # Пробуем найти результат на странице напрямую
+                try:
+                    page_text = driver.find_element(By.TAG_NAME, 'body').text
+                    safe_print(f"📄 [SELENIUM] Текст страницы получен, длина: {len(page_text)} символов")
+                    safe_print(f"📄 [SELENIUM] Первые 1000 символов страницы:\n{page_text[:1000]}")
+                    # Здесь можно попробовать распарсить данные со страницы если AJAX не сработал
+                except Exception as e:
+                    safe_print(f"⚠️ [SELENIUM] Ошибка получения текста страницы: {e}")
+            
+            selenium_duration = time.time() - start_time
+            track_selenium_duration(selenium_duration)
+            safe_print(f"⏱️ [SELENIUM] Время выполнения: {selenium_duration:.2f} секунд")
+            
+            return ajax_response
+            
+        except Exception as e:
+            safe_print(f"❌ [SELENIUM] Ошибка при получении данных по договору {contract_number}: {e}")
+            import traceback
+            safe_print(f"📋 [SELENIUM] Traceback:\n{traceback.format_exc()}")
+            
+            # Делаем скриншот при ошибке
+            if driver:
+                try:
+                    self._take_screenshot(driver, f"contract_error_{contract_number.replace('/', '_')}.png")
+                except Exception:
+                    pass
+            return None
+            
         finally:
             if driver:
                 try:

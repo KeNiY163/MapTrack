@@ -132,6 +132,7 @@ user_states: Dict[int, Dict] = {}
 # Сохраненные карты для удаления при возврате в меню
 user_map_messages: Dict[int, int] = {}  # chat_id -> message_id карты
 
+
 # Вспомогательная функция для безопасной отправки сообщений с retry
 async def safe_reply_text(update: Update, text: str, reply_markup=None, max_retries=3):
     """Безопасная отправка сообщения с повторными попытками при сетевых ошибках"""
@@ -733,72 +734,29 @@ async def search_contract_async(
             safe_print(f"❌ [КРИТИЧЕСКАЯ ОШИБКА] Не удалось отправить сообщение об ошибке пользователю {user_name}: {send_error}")
 
 async def fetch_contract_data(contract_number: str) -> dict:
-    """Запрос данных по договору к API gs25.ru"""
+    """Запрос данных по договору через Selenium с перехватом AJAX ответа"""
     import asyncio
-    import requests
     
-    safe_print(f"🌐 [API] Запрос к API для договора {contract_number}")
-    url = 'https://gs25.ru/wp-admin/admin-ajax.php'
+    safe_print(f"🌐 [SELENIUM] Запрос данных по договору {contract_number} через Selenium")
     
-    # Формируем данные запроса
-    data = {
-        'action': 'tracking_search',
-        'track_code': contract_number,
-        'nonce': '5cb7808aee'
-    }
-    
-    headers = {
-        'accept': '*/*',
-        'accept-language': 'ru,en-US;q=0.9,en;q=0.8',
-        'cache-control': 'no-cache',
-        'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'cookie': '_ym_uid=1767728589134274810; _ym_d=1767728589; _ym_isad=1',
-        'origin': 'https://gs25.ru',
-        'pragma': 'no-cache',
-        'priority': 'u=1, i',
-        'referer': 'https://gs25.ru/status/',
-        'sec-ch-ua': '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-origin',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
-        'x-requested-with': 'XMLHttpRequest'
-    }
-    
-    def _make_request():
-        """Синхронный запрос, выполняется в отдельном потоке"""
+    # Используем Selenium для получения данных
+    def _get_contract_selenium():
+        """Синхронный запрос через Selenium, выполняется в отдельном потоке"""
         try:
-            safe_print(f"📡 [API] Выполнение POST запроса для договора {contract_number}")
-            response = requests.post(url, headers=headers, data=data, timeout=30)
-            
-            safe_print(f"📡 [API] Получен ответ для договора {contract_number}: статус {response.status_code}")
-            
-            if response.status_code == 200:
-                # Пытаемся распарсить JSON
-                try:
-                    result = response.json()
-                    safe_print(f"✅ [API] JSON успешно распарсен для договора {contract_number}")
-                    return result
-                except ValueError:
-                    # Если не JSON, возвращаем текст
-                    safe_print(f"⚠️ [API] Ответ не является JSON для договора {contract_number}, возвращаем текст")
-                    return {'html': response.text, 'raw': response.text}
-            else:
-                safe_print(f"⚠️ [API] Неуспешный статус ответа для договора {contract_number}: {response.status_code}")
-                return None
+            # Используем существующий сервис отслеживания
+            result = tracker_service.track_contract(contract_number)
+            return result
         except Exception as e:
-            safe_print(f"❌ [API] Ошибка при запросе к API для договора {contract_number}: {e}")
+            safe_print(f"❌ [SELENIUM] Ошибка при получении данных по договору {contract_number}: {e}")
             import traceback
-            safe_print(f"📋 [API] Traceback:\n{traceback.format_exc()}")
+            safe_print(f"📋 [SELENIUM] Traceback:\n{traceback.format_exc()}")
             return None
     
     # Выполняем запрос в отдельном потоке, чтобы не блокировать event loop
     loop = asyncio.get_event_loop()
-    safe_print(f"⚙️ [API] Запуск синхронного запроса в executor для договора {contract_number}")
-    result = await loop.run_in_executor(None, _make_request)
-    safe_print(f"✅ [API] Запрос для договора {contract_number} завершен")
+    safe_print(f"⚙️ [SELENIUM] Запуск Selenium запроса в executor для договора {contract_number}")
+    result = await loop.run_in_executor(None, _get_contract_selenium)
+    safe_print(f"✅ [SELENIUM] Запрос для договора {contract_number} завершен")
     return result
 
 def format_contract_data(data: dict, contract_number: str, chat_id: int = None) -> tuple[str, bool]:
@@ -833,7 +791,37 @@ def format_contract_data(data: dict, contract_number: str, chat_id: int = None) 
     
     # Проверяем структуру ответа
     if not isinstance(data, dict):
+        safe_print(f"⚠️ [ФОРМАТИРОВАНИЕ] Данные не являются словарем для договора {contract_number}, тип: {type(data)}")
         return (f"❌ Неверный формат данных по договору {contract_number}", False)
+    
+    # Проверяем, не вернулся ли HTML/текст вместо JSON
+    if 'error' in data and data.get('error') == 'not_json':
+        safe_print(f"⚠️ [ФОРМАТИРОВАНИЕ] API вернул не-JSON ответ для договора {contract_number}")
+        html_content = data.get('raw', '') or data.get('html', '')
+        content_lower = html_content.lower().strip() if html_content else ''
+        
+        safe_print(f"🔍 [ФОРМАТИРОВАНИЕ] Анализ содержимого ответа для договора {contract_number}: '{html_content}'")
+        
+        # Пытаемся найти сообщение об ошибке в HTML
+        if 'security check failed' in content_lower:
+            safe_print(f"🔒 [ФОРМАТИРОВАНИЕ] Обнаружена ошибка безопасности для договора {contract_number}")
+            return (f"❌ Ошибка безопасности при запросе данных по договору {contract_number}\n\n"
+                   f"⚠️ Проблема с проверкой безопасности на сервере.\n\n"
+                   f"💡 Попробуйте:\n"
+                   f"   • Проверить номер договора\n"
+                   f"   • Попробовать позже", False)
+        elif 'не найден' in content_lower or 'not found' in content_lower:
+            safe_print(f"🔍 [ФОРМАТИРОВАНИЕ] Договор {contract_number} не найден")
+            return (f"❌ Договор {contract_number} не найден в системе", False)
+        elif 'ошибка' in content_lower or 'error' in content_lower:
+            safe_print(f"❌ [ФОРМАТИРОВАНИЕ] Обнаружена общая ошибка для договора {contract_number}")
+            return (f"❌ Ошибка при запросе данных по договору {contract_number}\n"
+                   f"Ответ сервера: {html_content}\n\nПопробуйте позже", False)
+        else:
+            safe_print(f"⚠️ [ФОРМАТИРОВАНИЕ] Неизвестный формат ответа для договора {contract_number}: {html_content}")
+            return (f"❌ Не удалось получить данные по договору {contract_number}\n"
+                   f"Сервер вернул неожиданный формат ответа: {html_content}\n\n"
+                   f"Попробуйте позже или проверьте номер договора.", False)
     
     # Извлекаем данные из поля 'data'
     # Структура: {'success': True, 'data': {'found': True, 'data': {...}}}
@@ -1116,27 +1104,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     chat_id=chat_id,
                     text=message_text,
                     reply_markup=keyboard
-                )
-                
-                await query.answer("📍 Карта отправлена")
-            except (ValueError, IndexError) as e:
-                await query.answer("❌ Ошибка при обработке координат", show_alert=True)
-    
-    elif data.startswith('show_map_'):
-        # Формат: show_map_{lat}_{lon}_{message_id}
-        parts = data.split('_')
-        if len(parts) >= 5:
-            try:
-                lat = float(parts[2])
-                lon = float(parts[3])
-                
-                # Отправляем карту
-                await context.bot.send_location(chat_id=chat_id, latitude=lat, longitude=lon)
-                
-                # Отправляем сообщение с результатами, чтобы оно было снизу
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=query.message.text
                 )
                 
                 await query.answer("📍 Карта отправлена")
@@ -1751,16 +1718,6 @@ def main():
     safe_print("🤖 [ЗАПУСК] Бот запущен и готов к работе...")
     safe_print("📊 [МЕТРИКИ] Метрики доступны на порту 8000")
     safe_print("🚀 [ЗАПУСК] Бот настроен на параллельную обработку запросов через run_in_executor")
-    
-    # Загружаем существующие расписания после инициализации (если JobQueue доступен)
-    if application.job_queue is not None:
-        async def post_init(app: Application):
-            await load_existing_schedules(app)
-        
-        application.post_init = post_init
-    else:
-        safe_print("⚠️ JobQueue не установлен. Расписание не будет работать.")
-        safe_print("   Установите: pip install 'python-telegram-bot[job-queue]'")
     
     # Запускаем бота
     application.run_polling(allowed_updates=Update.ALL_TYPES)

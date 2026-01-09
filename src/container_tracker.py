@@ -291,7 +291,7 @@ class ContainerTrackerService:
         Основной метод для отслеживания контейнера
         
         Args:
-            track_number: Номер контейнера (например, TKRU4471976)
+            track_number: Номер контейнера (например, TKRU1234567)
             destination_city: Город назначения для расчета расстояния
             
         Returns:
@@ -371,7 +371,7 @@ class ContainerTrackerService:
         Получает данные по договору через Selenium с перехватом AJAX ответа
         
         Args:
-            contract_number: Номер договора (например, 122707МС7177)
+            contract_number: Номер договора (например, 123456АБ7890)
             
         Returns:
             dict с данными по договору или None если ошибка

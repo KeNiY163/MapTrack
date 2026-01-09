@@ -361,6 +361,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     track_message('text')
     
     chat_id = update.effective_chat.id
+    user_name = update.effective_user.username or f"ID:{chat_id}"
+    safe_print(f"👋 [КОМАНДА] Пользователь {user_name} (chat_id: {chat_id}) выполнил команду /start")
+    
     cities = load_cities()
     current_city = cities.get(str(chat_id), 'Москва')
     
@@ -392,6 +395,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def track_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /track"""
     track_command('track')
+    chat_id = update.effective_chat.id
+    user_name = update.effective_user.username or f"ID:{chat_id}"
+    safe_print(f"📦 [КОМАНДА] Пользователь {user_name} (chat_id: {chat_id}) выполнил команду /track")
+    
     try:
         await safe_reply_text(
             update,
@@ -399,20 +406,27 @@ async def track_command_handler(update: Update, context: ContextTypes.DEFAULT_TY
             reply_markup=create_reply_keyboard()
         )
     except (NetworkError, TelegramError) as e:
-        safe_print(f"❌ Ошибка отправки сообщения: {e}")
+        safe_print(f"❌ [ОШИБКА] Ошибка отправки сообщения пользователю {user_name}: {e}")
 
 async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /history"""
     track_command('history')
+    chat_id = update.effective_chat.id
+    user_name = update.effective_user.username or f"ID:{chat_id}"
+    safe_print(f"📊 [КОМАНДА] Пользователь {user_name} (chat_id: {chat_id}) выполнил команду /history")
+    
     await update.message.reply_text(
         "📊 История поиска\n\nВыберите контейнер или договор:",
-        reply_markup=create_history_keyboard(update.effective_chat.id)
+        reply_markup=create_history_keyboard(chat_id)
     )
 
 async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /schedule"""
     track_command('schedule')
     chat_id = update.effective_chat.id
+    user_name = update.effective_user.username or f"ID:{chat_id}"
+    safe_print(f"⏰ [КОМАНДА] Пользователь {user_name} (chat_id: {chat_id}) выполнил команду /schedule")
+    
     user_states[chat_id] = {'days': [], 'times': [], 'msg_id': None}
     
     await update.message.reply_text(
@@ -425,10 +439,14 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Обработчик текстовых сообщений"""
     track_message('text')
     chat_id = update.effective_chat.id
+    user_name = update.effective_user.username or f"ID:{chat_id}"
     text = update.message.text.strip()
+    
+    safe_print(f"💬 [СООБЩЕНИЕ] Пользователь {user_name} (chat_id: {chat_id}) отправил сообщение: {text[:50]}...")
     
     # Обрабатываем нажатия на кнопки постоянной клавиатуры
     if text == '📦 Отследить':
+        safe_print(f"📦 [КНОПКА] Пользователь {user_name} нажал кнопку 'Отследить'")
         # Показываем историю контейнеров
         history = load_history()
         user_history = history.get(str(chat_id), [])
@@ -445,12 +463,14 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
         return
     elif text == '📊 История':
+        safe_print(f"📊 [КНОПКА] Пользователь {user_name} нажал кнопку 'История'")
         await update.message.reply_text(
             "📊 История поиска\n\nВыберите контейнер или договор:",
             reply_markup=create_history_keyboard(chat_id)
         )
         return
     elif text == '⏰ Расписание':
+        safe_print(f"⏰ [КНОПКА] Пользователь {user_name} нажал кнопку 'Расписание'")
         user_states[chat_id] = {'days': [], 'times': [], 'msg_id': None}
         await update.message.reply_text(
             "⏰ Настройка расписания\n\nВыберите дни недели для уведомлений:",
@@ -458,6 +478,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return
     elif text == '🏙️ Мой город':
+        safe_print(f"🏙️ [КНОПКА] Пользователь {user_name} нажал кнопку 'Мой город'")
         cities = load_cities()
         current_city = cities.get(str(chat_id), 'Москва')
         user_states[chat_id] = {'waiting_for': 'city'}
@@ -468,6 +489,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return
     elif text == '📝 Мое расписание':
+        safe_print(f"📝 [КНОПКА] Пользователь {user_name} нажал кнопку 'Мое расписание'")
         schedule = load_schedule()
         user_schedule = schedule.get(str(chat_id))
         if user_schedule:
@@ -517,6 +539,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text(msg, reply_markup=create_reply_keyboard())
         return
     elif text == '🔍 Поиск по договору':
+        safe_print(f"🔍 [КНОПКА] Пользователь {user_name} нажал кнопку 'Поиск по договору'")
         # Показываем историю договоров
         contract_history = load_contract_history()
         user_contract_history = contract_history.get(str(chat_id), [])
@@ -534,6 +557,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
         return
     elif text == '❤️ Поддержать' or text == '❤️ Поддержать проект':
+        safe_print(f"❤️ [КНОПКА] Пользователь {user_name} нажал кнопку 'Поддержать'")
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton('💖 Поддержать', url='https://www.donationalerts.com/r/container_bot')],
             [InlineKeyboardButton('⬅️ Главное меню', callback_data='main_menu')]
@@ -578,6 +602,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     # Проверяем, является ли сообщение трек-номером
     if len(text) == 11 and text.startswith('TKRU'):
+        safe_print(f"📦 [РАСПОЗНАНО] Сообщение распознано как трек-номер контейнера: {text}")
         await handle_track_request(update, context, text)
         return
     
@@ -590,39 +615,61 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def handle_contract_search(update: Update, context: ContextTypes.DEFAULT_TYPE, contract_number: str):
     """Обработка поиска по договору"""
     chat_id = update.effective_chat.id
+    user_name = update.effective_user.username or f"ID:{chat_id}"
     
-    # Отправляем сообщение о начале поиска
-    status_msg = await update.message.reply_text(
-        "⏳ Ищу информацию по договору...\n(Это может занять несколько секунд)"
-    )
+    safe_print(f"🔍 [ЗАПРОС] Пользователь {user_name} (chat_id: {chat_id}) запросил поиск по договору: {contract_number}")
+    
+    # Отправляем сообщение о начале поиска СРАЗУ
+    try:
+        status_msg = await update.message.reply_text(
+            "⏳ Ищу информацию по договору...\n(Это может занять несколько секунд)"
+        )
+        safe_print(f"✅ [ОТПРАВКА] Сообщение о начале поиска по договору отправлено пользователю {user_name} (message_id: {status_msg.message_id})")
+    except Exception as e:
+        safe_print(f"❌ [ОШИБКА] Не удалось отправить сообщение пользователю {user_name}: {e}")
+        return
     
     # Запускаем поиск в фоне
     context.application.create_task(
-        search_contract_async(chat_id, contract_number, status_msg.message_id, context)
+        search_contract_async(chat_id, contract_number, status_msg.message_id, context, user_name)
     )
+    safe_print(f"🚀 [ЗАПУСК] Асинхронная задача поиска по договору запущена для пользователя {user_name}, договор: {contract_number}")
 
 async def search_contract_async(
     chat_id: int,
     contract_number: str,
     status_msg_id: int,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
+    user_name: str = None
 ):
     """Асинхронный поиск по договору"""
+    if user_name is None:
+        user_name = f"ID:{chat_id}"
+    
     try:
+        safe_print(f"🔄 [ПОИСК ДОГОВОРА] Начало поиска договора {contract_number} для пользователя {user_name}")
+        
         # Выполняем запрос к API
         result = await fetch_contract_data(contract_number)
+        safe_print(f"✅ [ПОИСК ДОГОВОРА] Данные по договору {contract_number} получены для пользователя {user_name}")
         
         if result:
+            safe_print(f"📋 [ОБРАБОТКА] Обработка данных договора {contract_number} для пользователя {user_name}")
             message, has_container = format_contract_data(result, contract_number, chat_id)
             
             # Сохраняем в историю договоров
+            safe_print(f"💾 [СОХРАНЕНИЕ] Сохранение договора {contract_number} в историю для пользователя {user_name}")
             contract_history = load_contract_history()
             chat_id_str = str(chat_id)
             contract_history.setdefault(chat_id_str, [])
             if contract_number not in contract_history[chat_id_str]:
                 contract_history[chat_id_str].append(contract_number)
-            save_contract_history(contract_history)
+                save_contract_history(contract_history)
+                safe_print(f"✅ [СОХРАНЕНИЕ] Договор {contract_number} добавлен в историю для пользователя {user_name}")
+            else:
+                safe_print(f"ℹ️ [СОХРАНЕНИЕ] Договор {contract_number} уже был в истории пользователя {user_name}")
         else:
+            safe_print(f"⚠️ [ПОИСК ДОГОВОРА] Договор {contract_number} не найден для пользователя {user_name}")
             message = f"❌ Не удалось найти информацию по договору {contract_number}\n\nПроверьте правильность номера договора."
             has_container = None
         
@@ -658,28 +705,39 @@ async def search_contract_async(
         reply_markup = InlineKeyboardMarkup(keyboard_buttons)
         
         # Обновляем сообщение с результатом
+        safe_print(f"📤 [ОТПРАВКА] Отправка результатов поиска по договору пользователю {user_name} (message_id: {status_msg_id})")
         await context.bot.edit_message_text(
             chat_id=chat_id,
             message_id=status_msg_id,
             text=message,
             reply_markup=reply_markup
         )
+        safe_print(f"✅ [ОТПРАВКА] Результаты поиска по договору успешно отправлены пользователю {user_name}")
         
     except Exception as e:
         track_error('contract_search')
+        safe_print(f"❌ [ОШИБКА] Ошибка при поиске по договору {contract_number} для пользователя {user_name}: {str(e)}")
+        import traceback
+        safe_print(f"📋 [ОШИБКА] Traceback:\n{traceback.format_exc()}")
+        
         error_msg = f"❌ Ошибка при поиске по договору: {str(e)}"
-        await context.bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=status_msg_id,
-            text=error_msg,
-            reply_markup=create_main_menu()
-        )
+        try:
+            await context.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=status_msg_id,
+                text=error_msg,
+                reply_markup=create_main_menu()
+            )
+            safe_print(f"✅ [ОТПРАВКА] Сообщение об ошибке отправлено пользователю {user_name}")
+        except Exception as send_error:
+            safe_print(f"❌ [КРИТИЧЕСКАЯ ОШИБКА] Не удалось отправить сообщение об ошибке пользователю {user_name}: {send_error}")
 
 async def fetch_contract_data(contract_number: str) -> dict:
     """Запрос данных по договору к API gs25.ru"""
     import asyncio
     import requests
     
+    safe_print(f"🌐 [API] Запрос к API для договора {contract_number}")
     url = 'https://gs25.ru/wp-admin/admin-ajax.php'
     
     # Формируем данные запроса
@@ -712,24 +770,35 @@ async def fetch_contract_data(contract_number: str) -> dict:
     def _make_request():
         """Синхронный запрос, выполняется в отдельном потоке"""
         try:
+            safe_print(f"📡 [API] Выполнение POST запроса для договора {contract_number}")
             response = requests.post(url, headers=headers, data=data, timeout=30)
+            
+            safe_print(f"📡 [API] Получен ответ для договора {contract_number}: статус {response.status_code}")
             
             if response.status_code == 200:
                 # Пытаемся распарсить JSON
                 try:
-                    return response.json()
+                    result = response.json()
+                    safe_print(f"✅ [API] JSON успешно распарсен для договора {contract_number}")
+                    return result
                 except ValueError:
                     # Если не JSON, возвращаем текст
+                    safe_print(f"⚠️ [API] Ответ не является JSON для договора {contract_number}, возвращаем текст")
                     return {'html': response.text, 'raw': response.text}
             else:
+                safe_print(f"⚠️ [API] Неуспешный статус ответа для договора {contract_number}: {response.status_code}")
                 return None
         except Exception as e:
-            safe_print(f"❌ Ошибка при запросе к API: {e}")
+            safe_print(f"❌ [API] Ошибка при запросе к API для договора {contract_number}: {e}")
+            import traceback
+            safe_print(f"📋 [API] Traceback:\n{traceback.format_exc()}")
             return None
     
     # Выполняем запрос в отдельном потоке, чтобы не блокировать event loop
     loop = asyncio.get_event_loop()
+    safe_print(f"⚙️ [API] Запуск синхронного запроса в executor для договора {contract_number}")
     result = await loop.run_in_executor(None, _make_request)
+    safe_print(f"✅ [API] Запрос для договора {contract_number} завершен")
     return result
 
 def format_contract_data(data: dict, contract_number: str, chat_id: int = None) -> tuple[str, bool]:
@@ -834,37 +903,65 @@ def format_contract_data(data: dict, contract_number: str, chat_id: int = None) 
 async def handle_track_request(update: Update, context: ContextTypes.DEFAULT_TYPE, track_number: str):
     """Обработка запроса на отслеживание"""
     chat_id = update.effective_chat.id
+    user_name = update.effective_user.username or f"ID:{chat_id}"
+    
+    safe_print(f"🔍 [ЗАПРОС] Пользователь {user_name} (chat_id: {chat_id}) запросил отслеживание контейнера: {track_number}")
+    
     cities = load_cities()
     destination_city = cities.get(str(chat_id), 'Москва')
     
-    # Отправляем сообщение о начале поиска
-    status_msg = await update.message.reply_text(
-        "⏳ Ищу информацию о контейнере...\n(Это может занять 30-60 секунд)"
-    )
+    safe_print(f"📍 [ЗАПРОС] Город назначения для пользователя {user_name}: {destination_city}")
     
-    # Запускаем отслеживание в фоне
+    # Отправляем сообщение о начале поиска СРАЗУ
+    try:
+        status_msg = await update.message.reply_text(
+            "⏳ Ищу информацию о контейнере...\n(Это может занять 30-60 секунд)"
+        )
+        safe_print(f"✅ [ОТПРАВКА] Сообщение о начале поиска отправлено пользователю {user_name} (message_id: {status_msg.message_id})")
+    except Exception as e:
+        safe_print(f"❌ [ОШИБКА] Не удалось отправить сообщение пользователю {user_name}: {e}")
+        return
+    
+    # Запускаем отслеживание в фоне (не блокируя event loop)
     context.application.create_task(
-        track_container_async(chat_id, track_number, destination_city, status_msg.message_id, context)
+        track_container_async(chat_id, track_number, destination_city, status_msg.message_id, context, user_name)
     )
+    safe_print(f"🚀 [ЗАПУСК] Асинхронная задача отслеживания запущена для пользователя {user_name}, контейнер: {track_number}")
 
 async def track_container_async(
     chat_id: int,
     track_number: str,
     destination_city: str,
     status_msg_id: int,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
+    user_name: str = None
 ):
     """Асинхронное отслеживание контейнера"""
+    if user_name is None:
+        user_name = f"ID:{chat_id}"
+    
     try:
         track_tracking_request()
         start_time = datetime.now()
         
-        # Используем сервис отслеживания
-        message, coords, distance = tracker_service.track(track_number, destination_city)
+        safe_print(f"🔄 [ОТСЛЕЖИВАНИЕ] Начало отслеживания контейнера {track_number} для пользователя {user_name}")
+        
+        # Выполняем синхронный вызов track() в отдельном потоке, чтобы не блокировать event loop
+        # Это позволяет обрабатывать запросы от других пользователей параллельно
+        loop = asyncio.get_event_loop()
+        safe_print(f"⚙️ [ОТСЛЕЖИВАНИЕ] Запуск синхронного отслеживания в executor для пользователя {user_name}")
+        
+        message, coords, distance = await loop.run_in_executor(
+            None,  # Используем дефолтный ThreadPoolExecutor
+            lambda: tracker_service.track(track_number, destination_city)
+        )
+        
+        safe_print(f"✅ [ОТСЛЕЖИВАНИЕ] Отслеживание контейнера {track_number} завершено для пользователя {user_name}")
         
         # Отслеживаем метрики
         duration = (datetime.now() - start_time).total_seconds()
         track_tracking_duration(duration)
+        safe_print(f"⏱️ [МЕТРИКИ] Время отслеживания для пользователя {user_name}: {duration:.2f} секунд")
         
         # Создаем клавиатуру с кнопкой "Показать на карте" если есть координаты
         keyboard_buttons = []
@@ -892,40 +989,57 @@ async def track_container_async(
         reply_markup = InlineKeyboardMarkup(keyboard_buttons)
         
         # Обновляем сообщение с результатом
+        safe_print(f"📤 [ОТПРАВКА] Отправка результатов пользователю {user_name} (message_id: {status_msg_id})")
         await context.bot.edit_message_text(
             chat_id=chat_id,
             message_id=status_msg_id,
             text=message,
             reply_markup=reply_markup
         )
+        safe_print(f"✅ [ОТПРАВКА] Результаты успешно отправлены пользователю {user_name}")
         
         # Сохраняем в историю
+        safe_print(f"💾 [СОХРАНЕНИЕ] Сохранение контейнера {track_number} в историю для пользователя {user_name}")
         history = load_history()
         chat_id_str = str(chat_id)
         history.setdefault(chat_id_str, [])
         if track_number not in history[chat_id_str]:
             history[chat_id_str].append(track_number)
-        save_history(history)
+            save_history(history)
+            safe_print(f"✅ [СОХРАНЕНИЕ] Контейнер {track_number} добавлен в историю для пользователя {user_name}")
+        else:
+            safe_print(f"ℹ️ [СОХРАНЕНИЕ] Контейнер {track_number} уже был в истории пользователя {user_name}")
         
     except Exception as e:
         track_error('track_container')
+        safe_print(f"❌ [ОШИБКА] Ошибка при отслеживании контейнера {track_number} для пользователя {user_name}: {str(e)}")
+        import traceback
+        safe_print(f"📋 [ОШИБКА] Traceback:\n{traceback.format_exc()}")
+        
         error_msg = f"❌ Ошибка: {str(e)}"
         error_keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton('⬅️ Главное меню', callback_data='main_menu')]
         ])
         try:
+            safe_print(f"📤 [ОТПРАВКА] Отправка сообщения об ошибке пользователю {user_name}")
             await context.bot.edit_message_text(
                 chat_id=chat_id,
                 message_id=status_msg_id,
                 text=error_msg,
                 reply_markup=error_keyboard
             )
-        except:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=error_msg,
-                reply_markup=error_keyboard
-            )
+            safe_print(f"✅ [ОТПРАВКА] Сообщение об ошибке отправлено пользователю {user_name}")
+        except Exception as send_error:
+            safe_print(f"⚠️ [ОШИБКА] Не удалось отредактировать сообщение, отправляю новое: {send_error}")
+            try:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=error_msg,
+                    reply_markup=error_keyboard
+                )
+                safe_print(f"✅ [ОТПРАВКА] Новое сообщение об ошибке отправлено пользователю {user_name}")
+            except Exception as final_error:
+                safe_print(f"❌ [КРИТИЧЕСКАЯ ОШИБКА] Не удалось отправить сообщение об ошибке пользователю {user_name}: {final_error}")
 
 # Обработчики callback'ов
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -935,7 +1049,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     chat_id = query.message.chat.id
+    user_name = query.from_user.username or f"ID:{chat_id}"
     data = query.data
+    
+    safe_print(f"🔘 [CALLBACK] Пользователь {user_name} (chat_id: {chat_id}) нажал кнопку: {data}")
     
     if data == 'main_menu':
         if chat_id in user_states:
@@ -1131,18 +1248,28 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data.startswith('track_container_'):
         # Формат: track_container_{container_number}
         container_number = data.replace('track_container_', '')
+        user_name = query.from_user.username or f"ID:{chat_id}"
+        safe_print(f"🔍 [CALLBACK] Пользователь {user_name} (chat_id: {chat_id}) запросил отслеживание контейнера через callback: {container_number}")
+        
         # Запускаем отслеживание контейнера
         cities = load_cities()
         destination_city = cities.get(str(chat_id), 'Москва')
         
-        status_msg = await query.message.reply_text(
-            "⏳ Ищу информацию о контейнере...\n(Это может занять 30-60 секунд)"
-        )
+        try:
+            status_msg = await query.message.reply_text(
+                "⏳ Ищу информацию о контейнере...\n(Это может занять 30-60 секунд)"
+            )
+            safe_print(f"✅ [ОТПРАВКА] Сообщение о начале поиска отправлено пользователю {user_name} (message_id: {status_msg.message_id})")
+        except Exception as e:
+            safe_print(f"❌ [ОШИБКА] Не удалось отправить сообщение пользователю {user_name}: {e}")
+            await query.answer("❌ Ошибка отправки сообщения", show_alert=True)
+            return
         
         # Запускаем отслеживание в фоне
         context.application.create_task(
-            track_container_async(chat_id, container_number, destination_city, status_msg.message_id, context)
+            track_container_async(chat_id, container_number, destination_city, status_msg.message_id, context, user_name)
         )
+        safe_print(f"🚀 [ЗАПУСК] Асинхронная задача отслеживания запущена для пользователя {user_name}, контейнер: {container_number}")
         
         await query.answer("📦 Запущено отслеживание контейнера")
     
@@ -1348,17 +1475,26 @@ async def handle_search_from_history(
     chat_id: int
 ):
     """Обработка поиска из истории"""
+    user_name = query.from_user.username or f"ID:{chat_id}"
+    safe_print(f"🔍 [ИСТОРИЯ] Пользователь {user_name} (chat_id: {chat_id}) выбрал контейнер из истории: {track_number}")
+    
     cities = load_cities()
     destination_city = cities.get(str(chat_id), 'Москва')
     
-    await query.edit_message_text(
-        "⏳ Ищу информацию о контейнере...\n(Это может занять 30-60 секунд)"
-    )
+    try:
+        await query.edit_message_text(
+            "⏳ Ищу информацию о контейнере...\n(Это может занять 30-60 секунд)"
+        )
+        safe_print(f"✅ [ОТПРАВКА] Сообщение о начале поиска обновлено для пользователя {user_name}")
+    except Exception as e:
+        safe_print(f"❌ [ОШИБКА] Не удалось обновить сообщение для пользователя {user_name}: {e}")
+        return
     
     # Запускаем отслеживание
     context.application.create_task(
-        track_container_async(chat_id, track_number, destination_city, query.message.message_id, context)
+        track_container_async(chat_id, track_number, destination_city, query.message.message_id, context, user_name)
     )
+    safe_print(f"🚀 [ЗАПУСК] Асинхронная задача отслеживания из истории запущена для пользователя {user_name}, контейнер: {track_number}")
 
 async def handle_contract_search_from_history(
     query,
@@ -1367,14 +1503,23 @@ async def handle_contract_search_from_history(
     chat_id: int
 ):
     """Обработка поиска договора из истории"""
-    await query.edit_message_text(
-        "⏳ Ищу информацию по договору...\n(Это может занять несколько секунд)"
-    )
+    user_name = query.from_user.username or f"ID:{chat_id}"
+    safe_print(f"🔍 [ИСТОРИЯ] Пользователь {user_name} (chat_id: {chat_id}) выбрал договор из истории: {contract_number}")
+    
+    try:
+        await query.edit_message_text(
+            "⏳ Ищу информацию по договору...\n(Это может занять несколько секунд)"
+        )
+        safe_print(f"✅ [ОТПРАВКА] Сообщение о начале поиска обновлено для пользователя {user_name}")
+    except Exception as e:
+        safe_print(f"❌ [ОШИБКА] Не удалось обновить сообщение для пользователя {user_name}: {e}")
+        return
     
     # Запускаем поиск
     context.application.create_task(
-        search_contract_async(chat_id, contract_number, query.message.message_id, context)
+        search_contract_async(chat_id, contract_number, query.message.message_id, context, user_name)
     )
+    safe_print(f"🚀 [ЗАПУСК] Асинхронная задача поиска по договору из истории запущена для пользователя {user_name}, договор: {contract_number}")
 
 # Расписание через JobQueue
 async def register_schedule_jobs(job_queue: JobQueue, chat_id: int, days: List[int], times: List[str], contracts: List[str] = None, containers: List[str] = None):
@@ -1419,13 +1564,18 @@ async def scheduled_check_callback(context: ContextTypes.DEFAULT_TYPE):
     contract_number = context.job.data.get('contract_number') if context.job.data else None
     
     if not chat_id:
+        safe_print(f"⚠️ [РАСПИСАНИЕ] Нет chat_id в задаче расписания")
         return
+    
+    user_name = f"ID:{chat_id}"  # В расписании username недоступен
     
     try:
         track_scheduled_check('attempt')
+        safe_print(f"⏰ [РАСПИСАНИЕ] Начало запланированной проверки для пользователя {user_name}, тип: {check_type}")
         
         if check_type == 'contract' and contract_number:
             # Проверка договора
+            safe_print(f"📋 [РАСПИСАНИЕ] Проверка договора {contract_number} для пользователя {user_name}")
             result = await fetch_contract_data(contract_number)
             if result:
                 message, has_container = format_contract_data(result, contract_number, chat_id)
@@ -1455,19 +1605,29 @@ async def scheduled_check_callback(context: ContextTypes.DEFAULT_TYPE):
                 keyboard_buttons.append([InlineKeyboardButton('⬅️ Главное меню', callback_data='main_menu')])
                 reply_markup = InlineKeyboardMarkup(keyboard_buttons)
                 
+                safe_print(f"📤 [РАСПИСАНИЕ] Отправка запланированного уведомления о договоре пользователю {user_name}")
                 await context.bot.send_message(
                     chat_id=chat_id,
                     text=f"🔔 Запланированная проверка договора\n\n{message}",
                     reply_markup=reply_markup
                 )
+                safe_print(f"✅ [РАСПИСАНИЕ] Уведомление о договоре отправлено пользователю {user_name}")
         elif check_type == 'container' and context.job.data.get('container_number'):
             # Проверка конкретного контейнера из расписания
             container_number = context.job.data.get('container_number')
+            safe_print(f"📦 [РАСПИСАНИЕ] Проверка контейнера {container_number} для пользователя {user_name}")
+            
             cities = load_cities()
             destination = cities.get(str(chat_id), 'Москва')
             
-            # Отслеживаем контейнер
-            message, coords, distance = tracker_service.track(container_number, destination)
+            # Отслеживаем контейнер (выполняем в executor, чтобы не блокировать event loop)
+            safe_print(f"⚙️ [РАСПИСАНИЕ] Запуск отслеживания контейнера {container_number} в executor для пользователя {user_name}")
+            loop = asyncio.get_event_loop()
+            message, coords, distance = await loop.run_in_executor(
+                None,
+                lambda: tracker_service.track(container_number, destination)
+            )
+            safe_print(f"✅ [РАСПИСАНИЕ] Отслеживание контейнера {container_number} завершено для пользователя {user_name}")
             
             # Создаем клавиатуру с кнопкой "Показать на карте" если есть координаты
             keyboard_buttons = []
@@ -1481,16 +1641,21 @@ async def scheduled_check_callback(context: ContextTypes.DEFAULT_TYPE):
             reply_markup = InlineKeyboardMarkup(keyboard_buttons)
             
             # Отправляем уведомление
+            safe_print(f"📤 [РАСПИСАНИЕ] Отправка запланированного уведомления пользователю {user_name}")
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"🔔 Запланированное обновление контейнера {container_number}\n\n{message}",
                 reply_markup=reply_markup
             )
+            safe_print(f"✅ [РАСПИСАНИЕ] Уведомление отправлено пользователю {user_name}")
         
         track_scheduled_check('success')
+        safe_print(f"✅ [РАСПИСАНИЕ] Запланированная проверка успешно завершена для пользователя {user_name}")
     except Exception as e:
         track_scheduled_check('error')
-        safe_print(f"Ошибка в scheduled_check_callback: {e}")
+        safe_print(f"❌ [РАСПИСАНИЕ] Ошибка в scheduled_check_callback для пользователя {user_name}: {e}")
+        import traceback
+        safe_print(f"📋 [РАСПИСАНИЕ] Traceback:\n{traceback.format_exc()}")
 
 
 #
@@ -1583,8 +1748,9 @@ def main():
     except:
         pass
     
-    safe_print("🤖 Бот запущен...")
-    safe_print("📊 Метрики доступны на порту 8000")
+    safe_print("🤖 [ЗАПУСК] Бот запущен и готов к работе...")
+    safe_print("📊 [МЕТРИКИ] Метрики доступны на порту 8000")
+    safe_print("🚀 [ЗАПУСК] Бот настроен на параллельную обработку запросов через run_in_executor")
     
     # Загружаем существующие расписания после инициализации (если JobQueue доступен)
     if application.job_queue is not None:
